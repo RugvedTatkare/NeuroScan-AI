@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>NeuroScan AI</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: #0a0f1e;
+            color: white;
+            min-height: 100vh;
+        }
+
+        header {
+            background: linear-gradient(90deg, #0d1b2a, #1b2a4a);
+            padding: 18px 40px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid #1e3a5f;
+        }
+
+        .header-left { display: flex; align-items: center; gap: 15px; }
+        header h1 { font-size: 22px; color: #00d4ff; letter-spacing: 1px; }
+        header p { font-size: 11px; color: #7a9cc0; margin-top: 3px; }
+        .header-right { font-size: 12px; color: #7a9cc0; text-align: right; }
+
+        .live-dot {
+            display: inline-block;
+            width: 8px; height: 8px;
+            background: #00e676;
+            border-radius: 50%;
+            margin-right: 5px;
+            animation: blink 1.5s infinite;
+        }
+
+        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+        .container {
+            display: flex;
+            gap: 25px;
+            padding: 30px 40px;
+            max-width: 1300px;
+            margin: auto;
+        }
+
+        .left-panel { flex: 1.2; display: flex; flex-direction: column; gap: 20px; }
+        .right-panel { flex: 1.5; display: flex; flex-direction: column; gap: 20px; }
+
+        .card {
+            background: #0d1b2a;
+            border: 1px solid #1e3a5f;
+            border-radius: 16px;
+            padding: 25px;
+        }
+
+        .card-title {
+            color: #00d4ff;
+            font-size: 11px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin-bottom: 18px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .patient-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .input-group { display: flex; flex-direction: column; gap: 5px; }
+        .input-group label { font-size: 11px; color: #7a9cc0; }
+
+        .input-group input, .input-group select {
+            background: #0f2035;
+            border: 1px solid #1e3a5f;
+            color: white;
+            padding: 10px 12px;
+            border-radius: 8px;
+            font-size: 13px;
+            outline: none;
+            transition: border 0.3s;
+        }
+
+        .input-group input:focus, .input-group select:focus { border-color: #00d4ff; }
+        .input-group select option { background: #0d1b2a; }
+
+        .upload-box {
+            border: 2px dashed #1e3a5f;
+            border-radius: 12px;
+            padding: 30px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: 15px;
+        }
+
+        .upload-box:hover { border-color: #00d4ff; background: #0f2035; }
+        .upload-box input { display: none; }
+        .upload-icon { font-size: 40px; margin-bottom: 8px; }
+        .upload-box p { color: #7a9cc0; font-size: 13px; }
+        .upload-box span { color: #00d4ff; font-weight: bold; }
+
+        #preview-container { display: none; margin-bottom: 15px; position: relative; }
+
+        #preview {
+            width: 100%;
+            max-height: 260px;
+            object-fit: cover;
+            border-radius: 10px;
+            border: 1px solid #1e3a5f;
+        }
+
+        .scan-overlay {
+            display: none;
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            border-radius: 10px;
+            background: linear-gradient(180deg, transparent 0%, rgba(0,212,255,0.15) 50%, transparent 100%);
+            animation: scanLine 1.5s linear infinite;
+        }
+
+        @keyframes scanLine {
+            0% { background-position: 0 -100%; }
+            100% { background-position: 0 200%; }
+        }
+
+        .scan-btn {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(90deg, #00d4ff, #0080ff);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+            letter-spacing: 1px;
+            transition: opacity 0.3s;
+        }
+
+        .scan-btn:hover { opacity: 0.85; }
+
+        .result-box {
+            min-height: 180px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+
+        .result-icon { font-size: 50px; margin-bottom: 12px; }
+        .result-title { font-size: 22px; font-weight: bold; margin-bottom: 6px; }
+        .result-tumor { color: #ff4d6d; }
+        .result-normal { color: #00e676; }
+        .result-sub { color: #7a9cc0; font-size: 12px; margin-bottom: 10px; }
+
+        .confidence-bar-container { width: 100%; margin-top: 10px; }
+
+        .confidence-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: #7a9cc0;
+            margin-bottom: 6px;
+        }
+
+        .confidence-bar {
+            height: 8px;
+            background: #1e3a5f;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .confidence-fill {
+            height: 100%;
+            border-radius: 10px;
+            transition: width 1.2s ease;
+            width: 0%;
+        }
+
+        .fill-tumor { background: linear-gradient(90deg, #ff4d6d, #ff0040); }
+        .fill-normal { background: linear-gradient(90deg, #00e676, #00b248); }
+
+        .waiting { color: #7a9cc0; font-size: 14px; }
+
+        .scanning-text {
+            color: #00d4ff;
+            font-size: 14px;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+        .stat-item {
+            background: #0f2035;
+            border-radius: 10px;
+            padding: 14px;
+            text-align: center;
+        }
+
+        .stat-value { font-size: 20px; font-weight: bold; color: #00d4ff; }
+        .stat-label { font-size: 10px; color: #7a9cc0; margin-top: 3px; }
+
+        .history-list { display: flex; flex-direction: column; gap: 10px; }
+
+        .history-item {
+            background: #0f2035;
+            border-radius: 10px;
+            padding: 12px 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 13px;
+        }
+
+        .history-name { color: white; font-weight: bold; }
+        .history-time { color: #7a9cc0; font-size: 11px; margin-top: 2px; }
+
+        .badge {
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+
+        .badge-tumor { background: rgba(255,77,109,0.2); color: #ff4d6d; }
+        .badge-normal { background: rgba(0,230,118,0.2); color: #00e676; }
+
+        .disclaimer {
+            background: rgba(255,193,7,0.08);
+            border: 1px solid rgba(255,193,7,0.2);
+            border-radius: 10px;
+            padding: 12px 15px;
+            font-size: 11px;
+            color: #ffc107;
+            line-height: 1.6;
+        }
+
+        .empty-history { color: #7a9cc0; font-size: 13px; text-align: center; padding: 10px; }
+
+        .tumor-type-box {
+            margin-top: 15px;
+            background: #0f2035;
+            border-radius: 10px;
+            padding: 15px;
+            width: 100%;
+            text-align: center;
+        }
+
+        .tumor-type-label {
+            font-size: 11px;
+            color: #7a9cc0;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+
+        .tumor-type-value { font-size: 20px; font-weight: bold; color: #ff9800; }
+        .tumor-type-confidence { font-size: 12px; color: #7a9cc0; margin-top: 4px; }
+
+        /* Tumor Info Panel */
+        .info-panel {
+            border-radius: 16px;
+            padding: 25px;
+            display: none;
+            border: 1px solid #1e3a5f;
+        }
+
+        .info-panel.glioma { background: linear-gradient(135deg, #1a0a0a, #2a0f0f); border-color: #ff4d6d44; }
+        .info-panel.meningioma { background: linear-gradient(135deg, #0a1a0a, #0f2a1a); border-color: #00e67644; }
+        .info-panel.pituitary { background: linear-gradient(135deg, #0a0a1a, #0f102a); border-color: #00d4ff44; }
+
+        .info-panel-title {
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .urgency-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: bold;
+            margin-left: auto;
+        }
+
+        .urgency-high { background: rgba(255,77,109,0.2); color: #ff4d6d; }
+        .urgency-medium { background: rgba(255,152,0,0.2); color: #ff9800; }
+        .urgency-low { background: rgba(0,230,118,0.2); color: #00e676; }
+
+        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+
+        .info-item {
+            background: rgba(255,255,255,0.04);
+            border-radius: 10px;
+            padding: 15px;
+        }
+
+        .info-item-title {
+            font-size: 11px;
+            color: #7a9cc0;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .info-item ul { list-style: none; }
+
+        .info-item ul li {
+            font-size: 12px;
+            color: #ccd6f6;
+            padding: 4px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .info-item ul li:last-child { border-bottom: none; }
+        .info-item ul li::before { content: '→'; color: #00d4ff; font-size: 10px; }
+
+        .info-description {
+            font-size: 13px;
+            color: #7a9cc0;
+            line-height: 1.7;
+            margin-bottom: 15px;
+            padding: 12px;
+            background: rgba(255,255,255,0.03);
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="header-left">
+        <div>🧠</div>
+        <div>
+            <h1>NeuroScan AI</h1>
+            <p>Brain Tumor Detection System • Powered by Deep Learning</p>
+        </div>
+    </div>
+    <div class="header-right">
+        <span class="live-dot"></span> System Online<br>
+        <span id="currentTime"></span>
+    </div>
+</header>
+
+<div class="container">
+
+    <!-- LEFT PANEL -->
+    <div class="left-panel">
+
+        <div class="card">
+            <div class="card-title">👤 Patient Information</div>
+            <div class="patient-grid">
+                <div class="input-group">
+                    <label>Patient Name</label>
+                    <input type="text" id="patientName" placeholder="Enter name">
+                </div>
+                <div class="input-group">
+                    <label>Age</label>
+                    <input type="number" id="patientAge" placeholder="Enter age" min="1" max="120">
+                </div>
+                <div class="input-group">
+                    <label>Gender</label>
+                    <select id="patientGender">
+                        <option value="">Select</option>
+                        <option>Male</option>
+                        <option>Female</option>
+                        <option>Other</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label>Scan Type</label>
+                    <select id="scanType">
+                        <option>MRI - T1</option>
+                        <option>MRI - T2</option>
+                        <option>MRI - FLAIR</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">🔬 Upload MRI Scan</div>
+            <div class="upload-box" onclick="document.getElementById('fileInput').click()">
+                <input type="file" id="fileInput" accept="image/*">
+                <div class="upload-icon">📁</div>
+                <p>Drop MRI scan here or <span>browse files</span></p>
+                <p style="margin-top:6px; font-size:11px;">Supports JPG, PNG</p>
+            </div>
+            <div id="preview-container">
+                <img id="preview" src="" alt="MRI Preview">
+                <div class="scan-overlay" id="scanOverlay"></div>
+            </div>
+            <button class="scan-btn" onclick="predict()">⚡ ANALYZE SCAN</button>
+        </div>
+
+        <div class="card">
+            <div class="card-title">📈 Model Statistics</div>
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-value">90%</div>
+                    <div class="stat-label">Detection Accuracy</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">94%</div>
+                    <div class="stat-label">Classification Accuracy</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">2</div>
+                    <div class="stat-label">AI Models</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">4</div>
+                    <div class="stat-label">Tumor Types</div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- RIGHT PANEL -->
+    <div class="right-panel">
+
+        <div class="card">
+            <div class="card-title">📊 Analysis Result</div>
+            <div class="result-box" id="resultBox">
+                <div class="result-icon">🏥</div>
+                <div class="waiting">Upload a scan to begin analysis</div>
+            </div>
+        </div>
+
+        <!-- Tumor Info Panel -->
+        <div class="info-panel" id="infoPanel">
+            <div class="info-panel-title" id="infoPanelTitle"></div>
+            <div class="info-description" id="infoDescription"></div>
+            <div class="info-grid" id="infoGrid"></div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">🕒 Recent Scans</div>
+            <div class="history-list" id="historyList">
+                <div class="empty-history">No scans yet</div>
+            </div>
+        </div>
+
+        <div class="disclaimer">
+            ⚠️ <strong>Medical Disclaimer:</strong> This tool is for educational purposes only and should not be used as a substitute for professional medical diagnosis. Always consult a qualified physician.
+        </div>
+
+    </div>
+</div>
+
+<script>
+    const tumorInfo = {
+        "Glioma": {
+            icon: "🔴",
+            urgency: "HIGH",
+            urgencyClass: "urgency-high",
+            panelClass: "glioma",
+            description: "Glioma is a type of tumor that originates in the glial cells of the brain or spine. It is one of the most common and aggressive brain tumors, accounting for about 33% of all brain tumors.",
+            symptoms: ["Persistent headaches", "Seizures", "Memory loss", "Personality changes", "Vision problems", "Nausea & vomiting"],
+            causes: ["Genetic mutations", "Radiation exposure", "Family history", "Immune system disorders"],
+            treatments: ["Surgical resection", "Radiation therapy", "Chemotherapy (Temozolomide)", "Targeted therapy", "Clinical trials"],
+            nextSteps: ["Immediate neurosurgeon consultation", "Full brain MRI with contrast", "Biopsy for grading", "Oncology referral"]
+        },
+        "Meningioma": {
+            icon: "🟡",
+            urgency: "MEDIUM",
+            urgencyClass: "urgency-medium",
+            panelClass: "meningioma",
+            description: "Meningioma is a tumor that arises from the meninges — the membranes surrounding the brain and spinal cord. Most meningiomas are benign (non-cancerous) and slow-growing.",
+            symptoms: ["Gradual headaches", "Hearing or vision loss", "Memory difficulties", "Loss of smell", "Limb weakness", "Facial numbness"],
+            causes: ["Hormonal factors", "Radiation exposure", "Neurofibromatosis type 2", "Genetic predisposition"],
+            treatments: ["Watchful waiting", "Stereotactic radiosurgery", "Conventional radiation", "Surgical removal", "Hormone therapy"],
+            nextSteps: ["Neurology consultation", "Regular MRI monitoring", "Evaluate tumor size & growth", "Discuss surgery options"]
+        },
+        "Pituitary": {
+            icon: "🟢",
+            urgency: "LOW",
+            urgencyClass: "urgency-low",
+            panelClass: "pituitary",
+            description: "Pituitary tumors are abnormal growths that develop in the pituitary gland. Most are benign adenomas and are often treatable. They can affect hormone production in the body.",
+            symptoms: ["Headaches", "Vision problems", "Hormonal imbalances", "Fatigue", "Unexplained weight changes", "Mood changes"],
+            causes: ["Gene mutations (MEN1)", "Genetic syndromes", "Sporadic mutations", "Family history"],
+            treatments: ["Medication (Dopamine agonists)", "Transsphenoidal surgery", "Radiation therapy", "Hormone replacement", "Regular monitoring"],
+            nextSteps: ["Endocrinologist consultation", "Hormone level blood tests", "Ophthalmology check", "Consider medication first"]
+        }
+    };
+
+    function updateTime() {
+        const now = new Date();
+        document.getElementById('currentTime').textContent = now.toLocaleTimeString();
+    }
+    setInterval(updateTime, 1000);
+    updateTime();
+
+    document.getElementById('fileInput').onchange = function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            document.getElementById('preview').src = e.target.result;
+            document.getElementById('preview-container').style.display = 'block';
+        }
+        reader.readAsDataURL(file);
+    }
+
+    let scanHistory = [];
+
+    async function predict() {
+        const file = document.getElementById('fileInput').files[0];
+        if (!file) { alert('Please upload an MRI image first!'); return; }
+
+        const name = document.getElementById('patientName').value || 'Unknown Patient';
+        const age = document.getElementById('patientAge').value || 'N/A';
+        const gender = document.getElementById('patientGender').value || 'N/A';
+
+        document.getElementById('scanOverlay').style.display = 'block';
+        document.getElementById('infoPanel').style.display = 'none';
+        document.getElementById('resultBox').innerHTML = `
+            <div class="result-icon">⚡</div>
+            <div class="scanning-text">Analyzing MRI scan...</div>
+        `;
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const response = await fetch('/predict', { method: 'POST', body: formData });
+        const data = await response.json();
+
+        document.getElementById('scanOverlay').style.display = 'none';
+
+        const isTumor = data.result === 'Tumor Detected';
+        const confidence = data.confidence;
+
+        let typeHTML = '';
+        if (isTumor && data.tumor_type) {
+            typeHTML = `
+                <div class="tumor-type-box">
+                    <div class="tumor-type-label">Tumor Type</div>
+                    <div class="tumor-type-value">🔬 ${data.tumor_type}</div>
+                    <div class="tumor-type-confidence">Type Confidence: ${data.type_confidence}%</div>
+                </div>
+            `;
+            showTumorInfo(data.tumor_type);
+        }
+
+        document.getElementById('resultBox').innerHTML = `
+            <div class="result-icon">${isTumor ? '⚠️' : '✅'}</div>
+            <div class="result-title ${isTumor ? 'result-tumor' : 'result-normal'}">
+                ${isTumor ? 'Tumor Detected' : 'No Tumor Detected'}
+            </div>
+            <div class="result-sub">
+                Patient: ${name} • Age: ${age} • Gender: ${gender}
+            </div>
+            <div class="confidence-bar-container">
+                <div class="confidence-label">
+                    <span>Confidence Score</span>
+                    <span>${confidence}%</span>
+                </div>
+                <div class="confidence-bar">
+                    <div class="confidence-fill ${isTumor ? 'fill-tumor' : 'fill-normal'}"
+                         id="fillBar" style="width:0%"></div>
+                </div>
+            </div>
+            ${typeHTML}
+        `;
+
+        setTimeout(() => {
+            document.getElementById('fillBar').style.width = confidence + '%';
+        }, 100);
+
+        const now = new Date().toLocaleTimeString();
+        scanHistory.unshift({ name, result: isTumor, confidence, type: data.tumor_type, time: now });
+        if (scanHistory.length > 5) scanHistory.pop();
+        updateHistory();
+    }
+
+    function showTumorInfo(type) {
+        const info = tumorInfo[type];
+        if (!info) return;
+
+        const panel = document.getElementById('infoPanel');
+        panel.className = `info-panel ${info.panelClass}`;
+        panel.style.display = 'block';
+
+        document.getElementById('infoPanelTitle').innerHTML = `
+            ${info.icon} ${type} Tumor — Detailed Information
+            <span class="urgency-badge ${info.urgencyClass}">⚠️ ${info.urgency} URGENCY</span>
+        `;
+
+        document.getElementById('infoDescription').textContent = info.description;
+
+        document.getElementById('infoGrid').innerHTML = `
+            <div class="info-item">
+                <div class="info-item-title">🤒 Common Symptoms</div>
+                <ul>${info.symptoms.map(s => `<li>${s}</li>`).join('')}</ul>
+            </div>
+            <div class="info-item">
+                <div class="info-item-title">🔍 Possible Causes</div>
+                <ul>${info.causes.map(c => `<li>${c}</li>`).join('')}</ul>
+            </div>
+            <div class="info-item">
+                <div class="info-item-title">💊 Treatment Options</div>
+                <ul>${info.treatments.map(t => `<li>${t}</li>`).join('')}</ul>
+            </div>
+            <div class="info-item">
+                <div class="info-item-title">🚨 Recommended Next Steps</div>
+                <ul>${info.nextSteps.map(n => `<li>${n}</li>`).join('')}</ul>
+            </div>
+        `;
+    }
+
+    function updateHistory() {
+        const list = document.getElementById('historyList');
+        if (scanHistory.length === 0) {
+            list.innerHTML = '<div class="empty-history">No scans yet</div>';
+            return;
+        }
+        list.innerHTML = scanHistory.map(s => `
+            <div class="history-item">
+                <div>
+                    <div class="history-name">${s.name}</div>
+                    <div class="history-time">${s.time} • ${s.confidence}% • ${s.type || 'No Tumor'}</div>
+                </div>
+                <span class="badge ${s.result ? 'badge-tumor' : 'badge-normal'}">
+                    ${s.result ? s.type || 'Tumor' : 'Normal'}
+                </span>
+            </div>
+        `).join('');
+    }
+</script>
+
+</body>
+</html>
